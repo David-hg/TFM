@@ -5,7 +5,7 @@ Control Crossovers and mutation
 
 from functools import reduce
 import numpy as np
-from gplpy.gggp.grammar import Terminal, Variable, NonTerminal, ProbabilisticModel  
+from .grammar import Terminal, Variable, NonTerminal, ProbabilisticModel
 
 class Derivation:
     """Derivation tree"""
@@ -290,7 +290,7 @@ class WX:
             son_2 = Derivation(max_recursions=max_recursions, tree=derivations[1].tree, crossover_node=genome_1_crossover_node, subtree=genome_0_crossover_node)
             return son_1, son_2
         else:
-            return None, None
+            return derivations
 
 
 class OnePointMutation:

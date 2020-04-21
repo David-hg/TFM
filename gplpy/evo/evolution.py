@@ -1,15 +1,13 @@
 """Evolutionary Daemon and Executor with logging capacities"""
 
-import math
 from collections import namedtuple
 from threading import Thread, Semaphore, Lock, Event
 from enum import Enum
 import numpy as np
 from scipy.special import softmax
-from gplpy.gggp.metaderivation import MetaDerivation, EDA
-from gplpy.gggp.grammar import ProbabilisticModel
-from gplpy.gggp.derivation import Derivation, OnePointMutation, WX
-
+from ..gggp.metaderivation import MetaDerivation, EDA
+from ..gggp.grammar import ProbabilisticModel
+from ..gggp.derivation import Derivation, OnePointMutation, WX
 
 class Optimization(Enum):
     min = False
@@ -133,10 +131,14 @@ class Evolution(object):
     def elitist_selection(self):
         return self.population[0:self.parents_pool_size]
 
-    def tournament_selection(self, battle_size=2):
+    def tournament_selection(self, battle_size=5, number_of_individuals=None):
         # Random selection of 4 individuals of the population
-        tournament = np.random.choice(self.population, size=self.parents_pool_size * battle_size, replace=False)
-        # Tournament: 2 individuals battle
+        if number_of_individuals is None:
+            number_of_individuals = self.parents_pool_size
+        tournament = []
+        for i in range(number_of_individuals):
+            challengers = np.random.choice(self.population, size=battle_size, replace=False)
+            tournament = np.concatenate((tournament, challengers), axis=None)
         if self.optimization == Optimization.min:
             return [min(tournament[i:i + battle_size], key=lambda x: x.fitness)
                     for i in range(0, len(tournament), battle_size)]
@@ -276,7 +278,6 @@ class Evolution_WX(Evolution):
         Derivation.probabilistic_model = setup.probabilistic_model
         self.mutate = setup.mutation.mutate
         self.mutation_rate = setup.mutation_rate
-        self.parents_pool_size = 2
 
     def evolve(self):
         self.population_control()
@@ -291,18 +292,22 @@ class Evolution_WX(Evolution):
         return self.finish()
 
     def crossover(self, parents):
-        offspring = [Individual(derivation_init=self.derivation_init,
-                                    problem=self.problem,
-                                    fitness_args=self.fitness_args,
-                                    max_recursions=self.max_recursions,
-                                    derivation=d,
-                                    learning_tolerance_step=self.learning_tolerance_step,
-                                    learning_tolerance=self.learning_tolerance,
-                                    maturity_tolerance_factor=self.maturity_tolerance_factor,
-                                    async_learning=self.async_learning,
-                                    converged=self.converged)
-                     for d in self.x(derivations=[x.derivation for x in parents],
-                                     max_recursions=self.max_recursions)]
+        offspring = []
+        for i in range(0, len(parents), 2):
+            while parents[i] == parents[i+1]:
+                parents[i+1] = self.tournament_selection(number_of_individuals=1)[0]
+            for d in self.x(derivations=[x.derivation for x in [parents[i], parents[i + 1]]], max_recursions=self.max_recursions):
+                offspring.append(Individual(derivation_init=self.derivation_init,
+                                   problem=self.problem,
+                                   fitness_args=self.fitness_args,
+                                   max_recursions=self.max_recursions,
+                                   derivation=d,
+                                   learning_tolerance_step=self.learning_tolerance_step,
+                                   learning_tolerance=self.learning_tolerance,
+                                   maturity_tolerance_factor=self.maturity_tolerance_factor,
+                                   async_learning=self.async_learning,
+                                   converged=self.converged))
+
         for o in offspring:
             o.start()
         for o in offspring:
@@ -315,7 +320,7 @@ Setup.__new__.__defaults__ = ('GUPI+ED', Evolution_EDA, 100, ProbabilisticModel.
 
 
 class Experiment:
-    def __init__(self, study, experiment, grammar, problem, fitness_args=(), logger=None, setups=Setup(), samples=100):
+    def __init__(self, study, experiment, grammar, problem, fitness_args=(), logger=None, setups=Setup(), samples=None):
         self.study = study
         self.experiment = experiment
         self.grammar = grammar
@@ -324,7 +329,8 @@ class Experiment:
         self.problem = problem
         self.fitness_args = fitness_args
         self.setups = setups
-        self.samples = samples
+        if samples is None:
+            self.samples = len(fitness_args)
 
     def run(self):
         experiments_id = []
@@ -347,9 +353,8 @@ class Experiment:
                 e = s.evolution(grammar=self.grammar,
                                 logger=self.logger,
                                 problem=self.problem,
-                                fitness_args=self.fitness_args,
-                                setup = s, 
-                               )
+                                fitness_args=self.fitness_args[x] if self.samples == len(self.fitness_args) else self.fitness_args,
+                                setup=s)
 
                 fit, avg_git, it, l_it = e.evolve()
                 if self.logger:

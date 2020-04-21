@@ -3,7 +3,7 @@ This module include all logic for Grammar Guide Genetic Programming including De
 Control Crossovers and mutation
 """
 from threading import Thread, Lock
-from gplpy.gggp.grammar import NonTerminal, ProbabilisticModel
+from .grammar import NonTerminal, ProbabilisticModel
 import numpy as np
 
 class MetaDerivation(object):
