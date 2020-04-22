@@ -203,7 +203,7 @@ class DBLogger(object):
                                                           'lower': iteration_lower},})
 
     def get_experiments(self):
-        return self.db.study.find_one({'_id': self.study_id})['experiments']
+        return self.db.study.find_one({'_id': self.study_id})['experiments_id']
 
     def get_experiment(self, experiment_id):
         return self.db.experiment.find_one({'_id': experiment_id})
