@@ -307,7 +307,6 @@ class Evolution_WX(Evolution):
                                    maturity_tolerance_factor=self.maturity_tolerance_factor,
                                    async_learning=self.async_learning,
                                    converged=self.converged))
-
         for o in offspring:
             o.start()
         for o in offspring:
@@ -324,13 +323,14 @@ class Experiment:
         self.study = study
         self.experiment = experiment
         self.grammar = grammar
-
         self.logger = logger
         self.problem = problem
         self.fitness_args = fitness_args
         self.setups = setups
         if samples is None:
             self.samples = len(fitness_args)
+        else:
+            self.samples = samples
 
     def run(self):
         experiments_id = []
@@ -353,7 +353,7 @@ class Experiment:
                 e = s.evolution(grammar=self.grammar,
                                 logger=self.logger,
                                 problem=self.problem,
-                                fitness_args=self.fitness_args[x] if self.samples == len(self.fitness_args) else self.fitness_args,
+                                fitness_args=self.fitness_args[x] if self.samples == len(self.fitness_args) and self.samples != 1 else self.fitness_args,
                                 setup=s)
 
                 fit, avg_git, it, l_it = e.evolve()

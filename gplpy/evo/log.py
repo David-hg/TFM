@@ -352,9 +352,9 @@ class DBLogger(object):
             self.study_name = setup['study']
 
         if os.path.basename(os.getcwd()) != self.study_path:
-            if not os.path.isdir('./experiments/' + self.study_path):
-                os.mkdir('./experiments/' + self.study_path)
-            os.chdir('./experiments/' + self.study_path)
+            if not os.path.isdir('.\experiments\\' + self.study_path):
+                os.mkdir('.\experiments\\' + self.study_path)
+            os.chdir('.\experiments\\' + self.study_path)
 
         # PLOTTING MEAN AND STANDARD DEVIATION EVOLUTION #######################################
         cursor = self.db.experiment.aggregate([
