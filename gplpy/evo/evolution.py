@@ -350,7 +350,6 @@ class Experiment:
             for x in range(0, self.samples):
                 if self.logger:
                     self.logger.new_sample(x)
-                print(self.samples, self.samples == len(self.fitness_args) and self.samples != 1)
                 e = s.evolution(grammar=self.grammar,
                                 logger=self.logger,
                                 problem=self.problem,
