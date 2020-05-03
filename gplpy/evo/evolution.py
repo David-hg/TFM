@@ -96,7 +96,7 @@ class Evolution(object):
 
         # Crossover function
         self.x = setup.crossover.crossover
-        if isinstance(setup.selection_rate,float):
+        if isinstance(setup.selection_rate,float) or setup.selection_rate == 1:
             self.parents_pool_size = int(round(setup.population_size * setup.selection_rate))
         elif isinstance(setup.selection_rate, int):
             self.parents_pool_size = setup.selection_rate
@@ -350,6 +350,7 @@ class Experiment:
             for x in range(0, self.samples):
                 if self.logger:
                     self.logger.new_sample(x)
+                print(self.samples, self.samples == len(self.fitness_args) and self.samples != 1)
                 e = s.evolution(grammar=self.grammar,
                                 logger=self.logger,
                                 problem=self.problem,
