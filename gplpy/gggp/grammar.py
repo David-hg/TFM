@@ -30,10 +30,23 @@ class ProbabilisticModel(Enum):
         """Obtains grammatically uniform model with recursive awareness"""
         indexes = []
         model_probabilities = []
+        chained_production_rule = False
         if remaining_recursions > 0:
             # Only production rules that would lead to recursive derivations or recursive production rules can be chosen
-            indexes = [index for index, production in enumerate(productions) if production.recursive]
-            model_probabilities = None
+            # Only works with one chained production rule per non-terminal
+            # TODO Adapt it to work with several chained production rules
+            for index, production in enumerate(productions):
+                if production.recursive:
+                    indexes.append(index)
+                    if production.chained_recursions:
+                        chained_production_rule = True
+            len_production_rules = len(indexes)
+            if chained_production_rule:
+                p_chained_production_rule = np.power(1/len_production_rules, 1/remaining_recursions)
+                q_rest_production_rules = (1.-p_chained_production_rule)/(len_production_rules-1.)
+                model_probabilities = [p_chained_production_rule if productions[i].chained_recursions else q_rest_production_rules for i in indexes ]
+            else:
+                model_probabilities = None
         else:
             for index, production in enumerate(productions):
                 if production.min_recursions == 0:
@@ -162,7 +175,7 @@ class Terminal:
 
 class Production:
     """Production rule"""
-    def __init__(self, grammar, symbol, left, right):
+    def __init__(self, grammar, symbol, left, right, chained_recursions):
         self.grammar = grammar
         self.symbol = symbol
         self.left = left
@@ -171,6 +184,7 @@ class Production:
         self._recursion_arity = None
         self._min_recursions = None
         self._cardinality = {}
+        self.chained_recursions = chained_recursions
 
     def __str__(self):
         return self.symbol
@@ -249,7 +263,7 @@ class CFG:
             non_terminal_parser = re.compile(r'^\s*/N/\s+((\S+\s+)*\S+)\s*$')
             terminal_parser = re.compile(r'^\s*/T/\s+((\S+\s+)*\S+)\s*$')
             variable_parser = re.compile(r'^\s*/V/\s+((\S+\s*\(\s*\S+\s*,\s*\S+\s*,\s*\S+\s*\)\s+)*\S+\s*\(\s*\S+\s*,\s*\S+\s*,\s*\S+\s*\))\s*$')
-            production_parser = re.compile(r'^\s*(\S+)\s+::=\s+((\S+\s+)*\S+)\s*$')
+            production_parser = re.compile(r'^\s*(\S+)\s+(::=|::=\+)\s+((\S+\s+)*\S+)\s*$')
             empty_line_parser = re.compile(r'^\s*$')
             comment_parser = re.compile(r'^\s*#.*')
             symbol_getter = re.compile(r'(\S+)')
@@ -301,6 +315,9 @@ class CFG:
                 # Production parser
                 match = production_parser.match(line)
                 if match:
+                    chained_recursions = False
+                    if '+' in match.group(2):
+                        chained_recursions = True
                     # Left part
                     left = match.group(1)
                     if left not in self.non_terminals:
@@ -311,7 +328,7 @@ class CFG:
 
                     # Right part
                     right = []
-                    for e in symbol_getter.findall(match.group(2)):
+                    for e in symbol_getter.findall(match.group(3)):
                         if e in self.non_terminals:
                             right.append(self.non_terminals[e])
                         elif e in self.terminals:
@@ -325,10 +342,10 @@ class CFG:
                                             ' does not belong to non terminal or terminals')
 
                     if left not in self.productions:
-                        self.productions[left] = [Production(self, line, self.non_terminals[left], right)]
+                        self.productions[left] = [Production(self, line, self.non_terminals[left], right, chained_recursions)]
 
                     else:
-                        self.productions[left].append(Production(self, line, self.non_terminals[left], right))
+                        self.productions[left].append(Production(self, line, self.non_terminals[left], right, chained_recursions))
 
                     continue
 
@@ -371,7 +388,8 @@ class CFG:
 
 
 if __name__ == "__main__":
-    gr = CFG("../../gr/symbolic_regression_problem.gr")
+    import os
+    gr = CFG("./gr/DFFNN.gr")
     for i in range(40):
         print(i, gr.axiom.cardinality(i))
 

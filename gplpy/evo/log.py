@@ -133,8 +133,10 @@ class DBLogger(object):
 
     def obtain_statistics(self, experiment_name=None):
         results = self.get_experiment_results(experiment_name)
+        print(results)
         for experiment_set in results:
             setups = experiment_set['setups']
+            print(setups)
             while len(setups):
                 s1 = setups.pop()
                 s1_it_stats = Series(s1['iterations'])
@@ -143,12 +145,13 @@ class DBLogger(object):
                 self.save_experiment_statistics(s1['experiment_id'], s1_it_stats, s1_f_stats, s1_l_it_stats)
 
                 for s2 in setups:
+                    print(s2)
                     it_win = None
                     f_win = None
                     l_it_win = None
                     s2_it_stats = Series(s2['iterations'])
                     s2_f_stats = Series(s2['fitness'])
-                    
+
                     s2_l_it_stats = Series(s2['learning_iterations'])
 
                     f_it_anova, p_it_anova = stats.f_oneway(s1['iterations'], s2['iterations'])
@@ -158,7 +161,7 @@ class DBLogger(object):
                     f_f_anova, p_f_anova = stats.f_oneway(s1['fitness'], s2['fitness'])
                     if p_f_anova < 0.05:
                         f_win = s1 if s1_f_stats.mean() < s2_f_stats.mean() else s2
-                    
+
                     f_l_it_anova, p_l_it_anova = stats.f_oneway(s1['learning_iterations'], s2['learning_iterations'])
                     if p_l_it_anova < 0.05:
                         l_it_win = s1 if s1_l_it_stats.mean() < s2_l_it_stats.mean() else s2
@@ -167,6 +170,62 @@ class DBLogger(object):
                                                p_it_anova, f_it_anova, it_win,
                                                p_f_anova, f_f_anova, f_win,
                                                p_l_it_anova, f_l_it_anova, l_it_win)
+
+    def obtain_statistics_table(self, experiment_ids):
+        results = self.db.experiment.find({'_id' : {'$in' : experiment_ids}})
+        table = []
+        challengers = []
+        for experiment in results:
+            challengers.append(experiment)
+        for s1 in challengers:
+            s1_anova = []
+            for s2 in challengers:
+                s1_anova.append(self.anova_fitness_value(s1, s2))
+            table.append(s1_anova)
+        return table
+
+    def anova_fitness_value(self, s1, s2):
+        perdedor = None
+        s2_f_stats = Series(s2['fitness'])
+        s1_f_stats = Series(s1['fitness'])
+
+        f_f_anova, p_f_anova = stats.f_oneway(s1['fitness'], s2['fitness'])
+        return p_f_anova
+
+
+    def obtain_statistics_modified(self, experiment_ids):
+        results = self.db.experiment.find({'_id' : {'$in' : experiment_ids}})
+        challengers = []
+        for experiment in results:
+            challengers.append(experiment)
+        last_round_survivors = len(challengers)
+        follow = True
+        while len(challengers) > 0 and follow and isinstance(challengers, list):
+            perdedores_iteracion = []
+            main_challenger = challengers[0]
+            for s2 in challengers:
+                perdedor = self.anova_fitness_loser(main_challenger, s2)
+                if perdedor not in perdedores_iteracion and perdedor is not None:
+                    perdedores_iteracion.append(perdedor)
+            for perdedor in perdedores_iteracion:
+                challengers.remove(perdedor)
+            if len(challengers) == last_round_survivors:
+                follow = False
+            else:
+                last_round_survivors = len(challengers)
+        return challengers
+
+
+    def anova_fitness_loser(self, s1, s2):
+        perdedor = None
+        s2_f_stats = Series(s2['fitness'])
+        s1_f_stats = Series(s1['fitness'])
+
+        f_f_anova, p_f_anova = stats.f_oneway(s1['fitness'], s2['fitness'])
+        if p_f_anova < 0.05:
+            perdedor = s1 if s1_f_stats.mean() > s2_f_stats.mean() else s2
+            print(perdedor['name'])
+            return perdedor
 
     def save_experiment_anova(self, experiment, e1, e2,
                               p_it_anova, f_it_anova, it_lower,
