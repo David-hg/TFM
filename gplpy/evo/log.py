@@ -133,10 +133,8 @@ class DBLogger(object):
 
     def obtain_statistics(self, experiment_name=None):
         results = self.get_experiment_results(experiment_name)
-        print(results)
         for experiment_set in results:
             setups = experiment_set['setups']
-            print(setups)
             while len(setups):
                 s1 = setups.pop()
                 s1_it_stats = Series(s1['iterations'])
@@ -145,7 +143,6 @@ class DBLogger(object):
                 self.save_experiment_statistics(s1['experiment_id'], s1_it_stats, s1_f_stats, s1_l_it_stats)
 
                 for s2 in setups:
-                    print(s2)
                     it_win = None
                     f_win = None
                     l_it_win = None
@@ -224,7 +221,6 @@ class DBLogger(object):
         f_f_anova, p_f_anova = stats.f_oneway(s1['fitness'], s2['fitness'])
         if p_f_anova < 0.05:
             perdedor = s1 if s1_f_stats.mean() > s2_f_stats.mean() else s2
-            print(perdedor['name'])
             return perdedor
 
     def save_experiment_anova(self, experiment, e1, e2,
