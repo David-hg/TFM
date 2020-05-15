@@ -805,8 +805,8 @@ class DBLogger(object):
 
         with open('./plot_experiments_' + str(self.study_id), 'w+') as f:
             import sys
-            py_path = sys.executable.rsplit('/',1)
-            py_path_str = py_path[0]+' '+py_path[1] 
+            py_path = sys.executable.rsplit('\\',1)
+            py_path_str = py_path[0]+' '+py_path[1]
             f.write('#!'+py_path_str+'\n')
             f.write('from evo.eda import Log\n')
             f.write('from bson.objectid import ObjectId\n')
@@ -824,6 +824,233 @@ class DBLogger(object):
 
         os.chmod('./plot_experiments_' + str(self.study_id), 0o777)
 
+    def plot_range_study_new(self):
+        if self.study_path is None:
+            setup = self.db.study.find_one({'_id': self.study_id}, {'_id': 0, 'study': 1})
+            if setup is None:
+                raise Exception('There is no exception with that ObjectID')
+
+            self.study_path = setup['study'].replace(' ', '_') + '_' + str(self.study_id)
+            self.study_name = setup['study']
+
+
+        if os.path.basename(os.getcwd()) != self.study_path:
+            if not os.path.isdir('./experiments/' + self.study_path):
+                os.mkdir('./experiments/' + self.study_path)
+            os.chdir('./experiments/' + self.study_path)
+
+            # PLOTTING MEAN AND STANDARD DEVIATION EVOLUTION #######################################
+        cursor = self.db.experiment.aggregate([
+            {'$match': {'study_id': self.study_id}},
+            {'$sort': {'name': 1}},
+            {'$group': {'_id': '$setup_name',
+                        'experiments_name': {'$push': '$name'},
+                        'fitness': {'$push': '$fitness'},
+                        'fitness_mean': {'$push': '$statistics.fitness_mean'},
+                        'fitness_confidence_interval': {'$push': '$statistics.fitness_confidence_interval'},
+                        'iterations': {'$push': '$iterations'},
+                        'iterations_mean': {'$push': '$statistics.iterations_mean'},
+                        'iterations_confidence_interval': {'$push': '$statistics.iterations_confidence_interval'},
+                        'evaluations': {'$push': '$evaluations'},
+                        'evaluations_mean': {'$push': '$statistics.evaluations_mean'},
+                        'evaluations_confidence_interval': {'$push': '$statistics.evaluations_confidence_interval'},
+                        'learning_iterations': {'$push': '$learning_iterations'},
+                        'learning_iterations_mean': {'$push': '$statistics.learning_iterations_mean'},
+                        'learning_iterations_confidence_interval': {
+                            '$push': '$statistics.learning_iterations_confidence_interval'}}},
+            {'$sort': {'_id': 1}}], allowDiskUse=True)
+
+        if cursor is None:
+            raise Exception('There is no logged data with that study id')
+
+        plt.clf()
+        experiments_name = []
+        iterations_fig = 1
+        fitness_fig = 2
+        learning_iterations_fig = 3
+        evaluations_fig = 4
+        gs = gridspec.GridSpec(2, 1, height_ratios=[1, 2])
+        handles = []
+        plus = -15
+        for color, setup in zip(self.plot_colors, cursor):
+            if len(experiments_name) < len(setup['experiments_name']):
+                experiments_name = setup['experiments_name']
+            plus += 10
+
+            # Plotting iterations statistics for setup
+            handles.append(mpatches.Patch(color=color, label=setup['_id'], alpha=0.5))
+
+            plt.figure(iterations_fig)
+            plt.subplot(gs[-1])
+            plt.boxplot(setup['iterations'],
+                        positions=setup['experiments_name'] if not isinstance(setup['experiments_name'][0],str) else [5],
+                        #positions=np.array([0, 50, 100, 150, 200, 250]) + plus,
+                        showmeans=True,
+                        meanline=True,
+                        bootstrap=5000,
+                        notch=True,
+                        patch_artist=True,
+                        showfliers=False,
+                        boxprops={'facecolor': color, 'alpha': 0.5},
+                        whiskerprops={'color': color, 'alpha': 0.5},
+                        meanprops={'color': color, 'alpha': 1},
+                        capprops={'color': color, 'alpha': 0.5},
+                        widths=np.full(len(setup['experiments_name']), len(experiments_name))
+                        )
+
+            # Plotting fitness statistics for setup
+            plt.figure(fitness_fig)
+            plt.subplot(gs[-1])
+            plt.boxplot(setup['fitness'],
+                        positions=setup['experiments_name'] if not isinstance(setup['experiments_name'][0],str) else [5],
+                        #positions=np.array([0, 50, 100, 150, 200, 250]) + plus,
+                        showmeans=True,
+                        meanline=True,
+                        bootstrap=5000,
+                        notch=True,
+                        patch_artist=True,
+                        showfliers=False,
+                        boxprops={'facecolor': color, 'alpha': 0.5},
+                        whiskerprops={'color': color, 'alpha': 0.5},
+                        meanprops={'color': color, 'alpha': 1},
+                        capprops={'color': color, 'alpha': 0.5},
+                        widths=np.full(len(setup['experiments_name']), len(experiments_name))
+                        )
+
+        # Setup iteration statistics figure
+        plt.figure(iterations_fig)
+        ax = plt.subplot(gs[-1])
+        plt.xlabel("Recursions")
+        ax.xaxis.tick_top()
+        plt.setp(ax.get_xticklabels(), visible=False)
+        if not isinstance(setup['experiments_name'][0], str):
+            plt.xlim(xmin=-20, xmax=270)
+            # PETABA
+            # plt.yscale('log')
+            plt.xscale('linear')
+        else:
+            plt.xlim(0, 10)
+        plt.ylabel("Generations")
+        plt.legend(handles=handles, loc=8, ncol=2, bbox_to_anchor=(.0, -0.25, 1, .1))
+        plt.grid()
+
+        # Setup fitness statistics figure
+        plt.figure(fitness_fig)
+        ax = plt.subplot(gs[-1])
+        plt.xlabel("Recursions")
+        ax.xaxis.tick_top()
+        plt.setp(ax.get_xticklabels(), visible=False)
+        if not isinstance(setup['experiments_name'][0], str):
+            plt.xlim(xmin=-20, xmax=270)
+            plt.yscale('log')
+            plt.xscale('linear')
+        else:
+            plt.xlim(0, 10)
+        plt.ylabel("Best fitness")
+        plt.legend(handles=handles, loc=8, ncol=2, bbox_to_anchor=(.0, -0.25, 1, .1))
+        plt.grid()
+
+        # PLOTTING ANOVA COMPARISON PER EXPERIMENT #######################################
+        anovas_fig_iteration_data = {}
+        anovas_fig_fitness_data = {}
+        comparisons = self.db.anova.aggregate([{'$match': {'study_id': self.study_id}},
+                                               {'$sort': {'experiment': 1}},
+                                               {'$group': {'_id': '$experiments.setup_name',
+                                                           'experiments_name': {'$push': '$experiment'},
+                                                           'iterations_p': {'$push': '$iterations.p'},
+                                                           'evaluations_p': {'$push': '$evaluations.p'},
+                                                           'fitness_p': {'$push': '$fitness.p'},
+                                                           'learning_iterations_p': {'$push': '$learning_iterations.p'}}},
+                                               {'$sort': {'_id': 1}}], allowDiskUse=True)
+
+        # Bound for significance difference
+        plt.figure(iterations_fig)
+        plt.subplot(gs[0])
+        if not isinstance(setup['experiments_name'][0], str):
+            x_limit = [-20, 270]
+        else:
+            x_limit = [0, 10]
+        plt.plot(x_limit,
+                 np.full(len(x_limit), 0.05),
+                 linestyle='dashed', color='k')
+
+        plt.figure(fitness_fig)
+        plt.subplot(gs[0])
+        plt.plot(x_limit,
+                 np.full(len(x_limit), 0.05),
+                 linestyle='dashed', color='k')
+
+        # Plotting p value for comparison and experiment
+        plus = -10
+        for color, marker, comparison in zip(reversed(self.plot_colors), self.plot_markers, comparisons):
+            plus += 10
+            xticks = np.array(
+                [0, 0, 50, 50, 100, 100, 150, 150, 200, 200, 250, 250] if len(comparison['experiments_name']) == 12 else [0, 50,
+                                                                                                                          100,
+                                                                                                                          150,
+                                                                                                                          200,
+                                                                                                                          250])
+
+            plt.figure(iterations_fig)
+            plt.subplot(gs[0])
+            plt.scatter(xticks + plus,
+                        list(comparison['iterations_p']),
+                        edgecolor=color,
+                        facecolors='none',
+                        marker=marker,
+                        alpha=0.5)
+
+            plt.figure(fitness_fig)
+            plt.subplot(gs[0])
+            plt.scatter(xticks + plus,
+                        list(comparison['fitness_p']),
+                        edgecolor=color,
+                        facecolors='none',
+                        marker=marker,
+                        alpha=0.5)
+
+            # Setup iteration anova figure and save
+        plt.figure(iterations_fig)
+        plt.subplot(gs[0])
+        # plt.title(r'Statistical comparison of the iterations for $G_{'+ self.grammar + r'}$')
+        plt.ylim(ymin=-0.01)
+        plt.ylabel("Anova p")
+        plt.grid()
+        if not isinstance(setup['experiments_name'][0], str):
+            plt.xlim(xmin=-20, xmax=270)
+            plt.xticks([0, 50, 100, 150, 200, 250], labels=experiments_name)
+            plt.yscale('symlog', linthreshy=0.01)
+        else:
+            plt.xlim(0, 10)
+            plt.tick_params(
+                axis='x',  # changes apply to the x-axis
+                which='both',  # both major and minor ticks are affected
+                bottom='off',  # ticks along the bottom edge are off
+                top='off',  # ticks along the top edge are off
+                labelbottom='off')
+        plt.savefig('./' + self.study_name + '_generations_evolution.png', dpi=150, bbox_inches="tight")
+
+        # Setup fitness anova figure and save
+        plt.figure(fitness_fig)
+        plt.subplot(gs[0])
+        # plt.title(r'Statistical comparison of the fitness for $G_{'+ self.grammar + r'}$')
+        plt.ylim(ymin=-0.01)
+        plt.ylabel("Anova p")
+        plt.grid()
+        if not isinstance(setup['experiments_name'][0], str):
+            plt.xlim(xmin=-20, xmax=270)
+            plt.xticks([0, 50, 100, 150, 200, 250], labels=experiments_name)
+            plt.yscale('symlog', linthreshy=0.01)
+        else:
+            plt.xlim(0, 10)
+            plt.tick_params(
+                axis='x',  # changes apply to the x-axis
+                which='both',  # both major and minor ticks are affected
+                bottom='off',  # ticks along the bottom edge are off
+                top='off',  # ticks along the top edge are off
+                labelbottom='off')
+
+        plt.savefig('./' + self.study_name + '_fitness_evolution.png', dpi=150, bbox_inches="tight")
 
 __author__ = "Pablo Ramos"
 __license__ = "Apache License 2.0"
