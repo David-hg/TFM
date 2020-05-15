@@ -357,10 +357,11 @@ class Experiment:
                                 setup=s)
 
                 fit, avg_git, it, l_it = e.evolve()
+                evaluations = it * s.population_size * s.offspring_rate
                 if self.logger:
-                    self.logger.log_experiment(float(fit), it, l_it)
+                    self.logger.log_experiment(float(fit), it, evaluations, l_it)
                 else:
-                    print("Sample: %d - Best fitness %.2f - Avg. fitness %.2f - Iterations %d - Learning iterations %d" % (x, fit, avg_git, it, l_it))
+                    print("Sample: %d - Best fitness %.2f - Avg. fitness %.2f - Iterations %d - Learning iterations %d - Evaluations %d" % (x, fit, avg_git, it, l_it, evaluations))
         if self.logger:
             self.logger.obtain_statistics(self.experiment)
         return experiments_id
