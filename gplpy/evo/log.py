@@ -1080,6 +1080,7 @@ class DBLogger(object):
         plt.savefig('./' + self.study_name + '_fitness_evolution.png', dpi=150, bbox_inches="tight")
 
     def plot_range_study_new_evaluations(self):
+        recursion_values = [0, 50, 100, 150, 200, 250]
         if self.study_path is None:
             setup = self.db.study.find_one({'_id': self.study_id}, {'_id': 0, 'study': 1})
             if setup is None:
@@ -1125,20 +1126,22 @@ class DBLogger(object):
         evaluations_fig = 4
         gs = gridspec.GridSpec(2, 1, height_ratios=[1, 2])
         handles = []
-        plus = -15
+        plus = -20
         for color, setup in zip(self.plot_colors, cursor):
+            num_positions = len(setup['evaluations'])
             if len(experiments_name) < len(setup['experiments_name']):
                 experiments_name = setup['experiments_name']
             plus += 10
 
             # Plotting iterations statistics for setup
             handles.append(mpatches.Patch(color=color, label=setup['_id'], alpha=0.5))
-
+            print(handles)
             plt.figure(iterations_fig)
             plt.subplot(gs[-1])
+            #print(len(setup['evaluations']), len(np.array(recursion_values[:num_positions])), len(np.full(num_positions, len(experiments_name))), np.full(num_positions, len(experiments_name)))
             plt.boxplot(setup['evaluations'],
                         # positions=setup['experiments_name'] if not isinstance(setup['experiments_name'][0],str) else [5],
-                        positions=np.array([0, 50, 100, 150, 200, 250]) + plus,
+                        positions=np.array(recursion_values[:num_positions]) + plus,
                         showmeans=True,
                         meanline=True,
                         bootstrap=5000,
@@ -1149,15 +1152,15 @@ class DBLogger(object):
                         whiskerprops={'color': color, 'alpha': 0.5},
                         meanprops={'color': color, 'alpha': 1},
                         capprops={'color': color, 'alpha': 0.5},
-                        widths=np.full(len(setup['experiments_name']), len(experiments_name))
+                        widths=np.full(num_positions, len(experiments_name))
                         )
-
+            print(plt.xticks())
             # Plotting fitness statistics for setup
             plt.figure(fitness_fig)
             plt.subplot(gs[-1])
             plt.boxplot(setup['fitness'],
                         # positions=setup['experiments_name'] if not isinstance(setup['experiments_name'][0],str) else [5],
-                        positions=np.array([0, 50, 100, 150, 200, 250]) + plus,
+                        positions=np.array(recursion_values[:num_positions]) + plus,
                         showmeans=True,
                         meanline=True,
                         bootstrap=5000,
@@ -1168,7 +1171,7 @@ class DBLogger(object):
                         whiskerprops={'color': color, 'alpha': 0.5},
                         meanprops={'color': color, 'alpha': 1},
                         capprops={'color': color, 'alpha': 0.5},
-                        widths=np.full(len(setup['experiments_name']), len(experiments_name))
+                        widths=np.full(num_positions, len(experiments_name))
                         )
 
         # Setup iteration statistics figure
@@ -1178,14 +1181,15 @@ class DBLogger(object):
         ax.xaxis.tick_top()
         plt.setp(ax.get_xticklabels(), visible=False)
         if not isinstance(setup['experiments_name'][0], str):
-            plt.xlim(xmin=-20, xmax=270)
+            plt.xlim(xmin=-20, xmax=recursion_values[num_positions-1]+20)
             # PETABA
             # plt.yscale('log')
             plt.xscale('linear')
         else:
             plt.xlim(0, 10)
         plt.ylabel("Generations")
-        plt.legend(handles=handles, loc=8, ncol=2, bbox_to_anchor=(.0, -0.25, 1, .1))
+        plt.legend(handles=handles, loc=2, bbox_to_anchor=(1, 1))
+        print(plt.xticks())
         plt.grid()
 
         # Setup fitness statistics figure
@@ -1195,13 +1199,13 @@ class DBLogger(object):
         ax.xaxis.tick_top()
         plt.setp(ax.get_xticklabels(), visible=False)
         if not isinstance(setup['experiments_name'][0], str):
-            plt.xlim(xmin=-20, xmax=270)
+            plt.xlim(xmin=-20, xmax=recursion_values[num_positions-1]+20)
             plt.yscale('log')
             plt.xscale('linear')
         else:
             plt.xlim(0, 10)
         plt.ylabel("Best fitness")
-        plt.legend(handles=handles, loc=8, ncol=2, bbox_to_anchor=(.0, -0.25, 1, .1))
+        plt.legend(handles=handles, loc=2, bbox_to_anchor=(1, 1))
         plt.grid()
 
         # PLOTTING ANOVA COMPARISON PER EXPERIMENT #######################################
@@ -1236,20 +1240,22 @@ class DBLogger(object):
                  linestyle='dashed', color='k')
 
         # Plotting p value for comparison and experiment
-        plus = -10
+        plus = -20
         for color, marker, comparison in zip(reversed(self.plot_colors), self.plot_markers, comparisons):
             plus += 10
             xticks = np.array([0, 0, 50, 50, 100, 100, 150, 150, 200, 200, 250, 250] if len(
-                comparison['experiments_name']) == 12 else [0, 50, 100, 150, 200, 250])
-
+                comparison['experiments_name']) == 12 else recursion_values[:num_positions])
+            #print(comparison["_id"], comparison["experiments_name"])
             plt.figure(iterations_fig)
             plt.subplot(gs[0])
+            print(list(comparison['iterations_p']), comparison["_id"])
             plt.scatter(xticks + plus,
                         list(comparison['iterations_p']),
                         edgecolor=color,
                         facecolors='none',
                         marker=marker,
-                        alpha=0.5)
+                        alpha=0.5,
+                        label=comparison['_id'][0]+' vs '+comparison['_id'][1])
 
             plt.figure(fitness_fig)
             plt.subplot(gs[0])
@@ -1258,18 +1264,21 @@ class DBLogger(object):
                         edgecolor=color,
                         facecolors='none',
                         marker=marker,
-                        alpha=0.5)
+                        alpha=0.5,
+                        label=comparison['_id'][0]+' vs '+comparison['_id'][1])
 
             # Setup iteration anova figure and save
         plt.figure(iterations_fig)
         plt.subplot(gs[0])
-        # plt.title(r'Statistical comparison of the iterations for $G_{'+ self.grammar + r'}$')
+        plt.title(r'Statistical comparison of the iterations for $G_{'+ self.grammar + r'}$')
         plt.ylim(ymin=-0.01)
         plt.ylabel("Anova p")
+        lgd = plt.legend(loc=2, bbox_to_anchor=(1, 1))
         plt.grid()
         if not isinstance(setup['experiments_name'][0], str):
-            plt.xlim(xmin=-20, xmax=270)
-            plt.xticks([0, 50, 100, 150, 200, 250], labels=experiments_name)
+            plt.xlim(xmin=-20, xmax=recursion_values[num_positions-1]+20)
+            #print("Not isinstance", experiments_name)
+            plt.xticks(recursion_values[:num_positions], labels=experiments_name)
             plt.yscale('symlog', linthreshy=0.01)
         else:
             plt.xlim(0, 10)
@@ -1279,18 +1288,20 @@ class DBLogger(object):
                 bottom='off',  # ticks along the bottom edge are off
                 top='off',  # ticks along the top edge are off
                 labelbottom='off')
-        plt.savefig('./' + self.study_name + '_generations_evolution.png', dpi=150, bbox_inches="tight")
+        plt.savefig('./' + self.study_name + '_generations_evolution.png', dpi=150, bbox_inches="tight", additional_artists=lgd)
 
         # Setup fitness anova figure and save
         plt.figure(fitness_fig)
         plt.subplot(gs[0])
-        # plt.title(r'Statistical comparison of the fitness for $G_{'+ self.grammar + r'}$')
+        plt.title(r'Statistical comparison of the fitness for $G_{'+ self.grammar + r'}$')
         plt.ylim(ymin=-0.01)
         plt.ylabel("Anova p")
+        lgd = plt.legend(loc=2, bbox_to_anchor=(1, 1))
         plt.grid()
         if not isinstance(setup['experiments_name'][0], str):
-            plt.xlim(xmin=-20, xmax=270)
-            plt.xticks([0, 50, 100, 150, 200, 250], labels=experiments_name)
+            #print("Not isinstance", experiments_name)
+            plt.xlim(xmin=-20, xmax=recursion_values[num_positions-1]+20)
+            plt.xticks(recursion_values[:num_positions], labels=experiments_name)
             plt.yscale('symlog', linthreshy=0.01)
         else:
             plt.xlim(0, 10)
