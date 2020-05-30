@@ -8,6 +8,7 @@ from scipy.special import softmax
 from ..gggp.metaderivation import MetaDerivation, EDA
 from ..gggp.grammar import ProbabilisticModel
 from ..gggp.derivation import Derivation, OnePointMutation, WX
+import tensorflow.keras.backend as back
 
 class Optimization(Enum):
     min = False
@@ -109,6 +110,7 @@ class Evolution(object):
     def population_control(self):
         # If population size below specified, insertion of new individuals
         while len(self.population) < self.population_size:
+            print(len(self.population), self.population_size)
             individual = Individual(derivation_init=self.derivation_init,
                                     problem=self.problem,
                                     fitness_args=self.fitness_args,
@@ -191,6 +193,8 @@ class Evolution(object):
                                       improvement=float(improvement))
         else:
             print('Best individual fitness: %.2f, Average fitness: %.2f, Improvement: %.2f' % (self.population[0].fitness, average_fitness, improvement))
+
+        #back.clear_session()
 
         if self.optimization == Optimization.min:
             if self.population[0].fitness == 0:
@@ -288,6 +292,7 @@ class Evolution_WX(Evolution):
             self.replacement(self.mutate(self.crossover(self.tournament_selection()), self.mutation_rate))
             # Filling up population (population initialization or immigrant population) and sorting
             self.population_control()
+            back.clear_session()
         
         return self.finish()
 
@@ -353,7 +358,8 @@ class Experiment:
                 e = s.evolution(grammar=self.grammar,
                                 logger=self.logger,
                                 problem=self.problem,
-                                fitness_args=self.fitness_args[x] if self.samples == len(self.fitness_args) and self.samples != 1 else self.fitness_args,
+                                fitness_args = self.fitness_args,
+                                #fitness_args=self.fitness_args[x] if self.samples == len(self.fitness_args) and self.samples != 1 else self.fitness_args,
                                 setup=s)
 
                 fit, avg_git, it, l_it = e.evolve()
