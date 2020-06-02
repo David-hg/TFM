@@ -1314,6 +1314,13 @@ class DBLogger(object):
 
         plt.savefig('./' + self.study_name + '_fitness_evolution.png', dpi=150, bbox_inches="tight")
 
+    def save_architecture(self, individual):
+        self.db.architecture.insert_one({"study_id" : self.study_id,
+                                         "experiment_id" : self.experiment_id,
+                                         "sample_id" : self.sample_id,
+                                         "best_architecture" : list(map(len, str(individual.derivation).replace(' ','').split("0")))})
+
+
 __author__ = "Pablo Ramos"
 __license__ = "Apache License 2.0"
 __version__ = "1.1.0"

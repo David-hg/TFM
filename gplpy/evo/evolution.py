@@ -110,7 +110,6 @@ class Evolution(object):
     def population_control(self):
         # If population size below specified, insertion of new individuals
         while len(self.population) < self.population_size:
-            print(len(self.population), self.population_size)
             individual = Individual(derivation_init=self.derivation_init,
                                     problem=self.problem,
                                     fitness_args=self.fitness_args,
@@ -243,7 +242,10 @@ class Evolution_EDA(Evolution):
             self.replacement(self.crossover(self.tournament_selection()))
             # Filling up population (population initialization or immigrant population) and sorting
             self.population_control()
+            back.clear_session()
 
+        if self.logger:
+            self.logger.save_architecture(self.population[0])
         return self.finish()
 
     def crossover(self, parents):
@@ -293,7 +295,9 @@ class Evolution_WX(Evolution):
             # Filling up population (population initialization or immigrant population) and sorting
             self.population_control()
             back.clear_session()
-        
+            
+        if self.logger:
+            self.logger.save_architecture(self.population[0])
         return self.finish()
 
     def crossover(self, parents):
@@ -320,7 +324,7 @@ class Evolution_WX(Evolution):
         return offspring
 
 Setup = namedtuple('Setup', 'name evolution max_recursions probabilistic_model crossover mutation mutation_rate exploration_rate model_update_rate population_size selection_rate offspring_rate immigration_rate tolerance_step tolerance async_learning learning_tolerance_step learning_tolerance maturity_tolerance_factor')
-Setup.__new__.__defaults__ = ('GUPI+ED', Evolution_EDA, 100, ProbabilisticModel.uniform, EDA, OnePointMutation, .05, 0.001, .5, 100, 0.5, 0.25, 0.0, 25, .01, False, 25, 0.01, 10)
+Setup.__new__.__defaults__ = ('GUPI+ED', Evolution_EDA, 100, ProbabilisticModel.uniform, EDA, OnePointMutation, .05, 0.001, .5, 100, 0.5, 0.25, 0.0, 2, .01, False, 25, 0.01, 10)
 
 
 class Experiment:
