@@ -30,6 +30,7 @@ class Individual:
             self.derivation = derivation_init(max_recursions)
 
         self._fitness = None
+        self.accuracy = None
         self.problem = problem(self, fitness_args)
         self.learning_iterations = 0
 
@@ -119,7 +120,6 @@ class Evolution(object):
                                     async_learning=self.async_learning,
                                     converged=self.converged,
                                     maturity_tolerance_factor=self.maturity_tolerance_factor)
-       
             individual.start()
             self.population.append(individual)
 
@@ -193,8 +193,6 @@ class Evolution(object):
         else:
             print('Best individual fitness: %.2f, Average fitness: %.2f, Improvement: %.2f' % (self.population[0].fitness, average_fitness, improvement))
 
-        #back.clear_session()
-
         if self.optimization == Optimization.min:
             if self.population[0].fitness == 0:
                 return True
@@ -238,14 +236,24 @@ class Evolution_EDA(Evolution):
 
         while not self.converge():
             self.generation += 1
+            """redes = [list(map(len, str(x.derivation).replace(' ','').split("0"))) for x in self.population]
+            print(redes)
+            longitudes = []
+            for red in redes:
+                longitud = 0
+                for capa in red:
+                    longitud += capa
+                longitudes.append(longitud)
+            print(longitudes)"""
             # Evolution
             self.replacement(self.crossover(self.tournament_selection()))
             # Filling up population (population initialization or immigrant population) and sorting
             self.population_control()
+            #print([[x.fitness, x.accuracy, list(map(len, str(x.derivation).replace(' ','').split("0")))]for x in self.population[:5]])
             back.clear_session()
 
         if self.logger:
-            self.logger.save_architecture(self.population[0])
+            self.logger.save_architecture(self.population[:5])
         return self.finish()
 
     def crossover(self, parents):
@@ -272,6 +280,7 @@ class Evolution_EDA(Evolution):
         #print(len(offspring[0].word), len(offspring[1].word))
         #print("Target:  " + str(len(self.fitness_args)))
 
+
         return offspring
        
 
@@ -290,14 +299,24 @@ class Evolution_WX(Evolution):
 
         while not self.converge():
             self.generation += 1
+            """redes = [list(map(len, str(x.derivation).replace(' ', '').split("0"))) for x in self.population]
+            print(redes)
+            longitudes = []
+            for red in redes:
+                longitud = 0
+                for capa in red:
+                    longitud += capa
+                longitudes.append(longitud)
+            print(longitudes)"""
             # Evolution
             self.replacement(self.mutate(self.crossover(self.tournament_selection()), self.mutation_rate))
             # Filling up population (population initialization or immigrant population) and sorting
             self.population_control()
+            #print([[x.fitness, x.accuracy, list(map(len, str(x.derivation).replace(' ', '').split("0")))] for x in self.population[:5]])
             back.clear_session()
             
         if self.logger:
-            self.logger.save_architecture(self.population[0])
+            self.logger.save_architecture(self.population[:5])
         return self.finish()
 
     def crossover(self, parents):
@@ -324,7 +343,7 @@ class Evolution_WX(Evolution):
         return offspring
 
 Setup = namedtuple('Setup', 'name evolution max_recursions probabilistic_model crossover mutation mutation_rate exploration_rate model_update_rate population_size selection_rate offspring_rate immigration_rate tolerance_step tolerance async_learning learning_tolerance_step learning_tolerance maturity_tolerance_factor')
-Setup.__new__.__defaults__ = ('GUPI+ED', Evolution_EDA, 100, ProbabilisticModel.uniform, EDA, OnePointMutation, .05, 0.001, .5, 100, 0.5, 0.25, 0.0, 2, .01, False, 25, 0.01, 10)
+Setup.__new__.__defaults__ = ('GUPI+ED', Evolution_EDA, 100, ProbabilisticModel.uniform, EDA, OnePointMutation, .05, 0.001, .5, 10, 0.5, 0.25, 0.0, 2, .01, False, 25, 0.01, 10)
 
 
 class Experiment:
